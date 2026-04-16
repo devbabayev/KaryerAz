@@ -1,0 +1,82 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-height);
+  background: rgba(10, 14, 20, 0.95);
+  backdrop-filter: blur(24px);
+  border-top: 1px solid var(--glass-border);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.nav-items-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 480px;
+  gap: 12px;
+}
+
+.nav-item {
+  background: none;
+  border: none;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  position: relative;
+  min-width: 50px;
+}
+
+.nav-item.active {
+  color: var(--primary-color);
+}
+
+.item-wrapper {
+  padding: 8px;
+  border-radius: 16px;
+  transition: var(--transition-smooth);
+}
+
+.nav-label {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.active-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--primary-color);
+  border-radius: 50%;
+  position: absolute;
+  bottom: -10px;
+}
+
+/* CV Button - Central focus */
+.cv-button .icon-wrapper {
+  background: var(--primary-color);
+  color: white;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  margin-top: -30px;
+  box-shadow: 0 8px 24px rgba(43, 127, 255, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.cv-button.active .icon-wrapper {
+  transform: scale(1.05);
+  box-shadow: 0 12px 28px rgba(43, 127, 255, 0.4);
+}

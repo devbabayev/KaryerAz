@@ -1,0 +1,6 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="256" cy="256" r="250" fill="#0c0c14" />
+  <path d="M128 50C70 80 30 140 30 200C30 300 110 380 210 380C170 330 150 270 150 200C150 140 170 80 210 30C180 35 150 40 128 50Z" fill="#6c6db5" fill-opacity="0.8"/>
+  <text x="256" y="270" text-anchor="middle" font-family="serif" font-size="94" fill="white" font-style="italic" text-decoration="underline">karyera</text>
+  <text x="256" y="345" text-anchor="middle" font-family="serif" font-size="54" fill="#e53e3e" font-style="italic">.az</text>
+</svg>

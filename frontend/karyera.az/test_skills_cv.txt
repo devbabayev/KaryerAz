@@ -1,0 +1,7 @@
+Sarah Chen Resume
+
+Skills
+Python, Javascript, React, Node.js, AWS Cloud, Docker.
+
+Experience
+Software Engineer at TechCorp...
