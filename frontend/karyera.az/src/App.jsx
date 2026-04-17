@@ -299,60 +299,88 @@ const CVView = ({ onAnalysisComplete }) => {
   const [selectedOpt, setSelectedOpt] = useState(null);
   const fileRef = useRef(null);
 
-  const handleFileSelect = async (file) => {
+  const handleFileSelect = (file) => {
     if (!file) return;
     setFileName(file.name);
     setFileReady(false);
     setExtracting(true);
     setError('');
     setResumeText('');
-    try {
-      let text = '';
-      if (file.name.endsWith('.pdf')) {
-        console.log('PDF analysis starting...');
-        const ab = await file.arrayBuffer();
-        const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
-        if (!pdfjsLib) {
-          throw new Error('PDF library (pdfjsLib) not found on window');
+
+    const reader = new FileReader();
+    
+    reader.onload = async (e) => {
+      try {
+        const ab = e.target.result;
+        let text = '';
+
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          console.log('Processing PDF with FileReader...');
+          const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
+          if (!pdfjsLib) throw new Error('PDF library not found (pdfjsLib)');
+          
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+          
+          const loadingTask = pdfjsLib.getDocument({ data: ab });
+          const pdf = await loadingTask.promise;
+          let fullText = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map(item => item.str);
+            fullText += strings.join(' ') + '\n';
+          }
+          text = fullText;
+        } 
+        else if (file.name.toLowerCase().endsWith('.docx')) {
+          console.log('Processing DOCX with FileReader...');
+          const mammoth = window.mammoth;
+          if (!mammoth) throw new Error('DOCX library not found (mammoth)');
+          
+          const result = await mammoth.extractRawText({ arrayBuffer: ab });
+          text = result.value;
+        } 
+        else {
+          // Fallback for .txt and others
+          const textReader = new FileReader();
+          textReader.onload = (te) => {
+            const t = te.target.result;
+            if (t && t.trim()) {
+              setResumeText(t);
+              setFileReady(true);
+              setExtracting(false);
+            } else {
+              setError('Fayl boşdur və ya oxuna bilmir.');
+              setExtracting(false);
+            }
+          };
+          textReader.readAsText(file);
+          return; // textReader uses its own state management
         }
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-        const loadingTask = pdfjsLib.getDocument({data:ab});
-        const pdf = await loadingTask.promise;
-        let fullText = '';
-        for (let i=1;i<=pdf.numPages;i++) {
-          const p = await pdf.getPage(i);
-          const tc = await p.getTextContent();
-          const pageText = tc.items.map(it => it.str).join(' ');
-          fullText += pageText + '\n';
+
+        if (text && text.trim()) {
+          setResumeText(text);
+          setFileReady(true);
+        } else {
+          throw new Error('Mətn çıxarıla bilmədi (nəticə boşdur)');
         }
-        text = fullText;
-        console.log('PDF text extracted, length:', text.length);
-      } else if (file.name.endsWith('.docx')) {
-        console.log('DOCX analysis starting...');
-        const ab = await file.arrayBuffer();
-        const mammoth = window.mammoth;
-        if (!mammoth) {
-          throw new Error('DOCX library (mammoth) not found on window');
-        }
-        const result = await mammoth.extractRawText({ arrayBuffer: ab });
-        text = result.value;
-        console.log('DOCX text extracted, length:', text.length);
-      } else {
-        text = await file.text();
-      }
-      if (!text || !text.trim()) {
-        console.error('Extraction result is empty');
-        setError('Fayldan mətn oxuna bilmədi. Fayl boş ola bilər və ya format dəstəklənmir. Mətni aşağıya əl ilə yapışdırın.');
+      } catch (err) {
+        console.error('File processing error:', err);
+        setError(`Xəta baş verdi: ${err.message}. Zəhmət olmasa mətni əl ilə yapışdırın.`);
+      } finally {
         setExtracting(false);
-        return;
       }
-      setResumeText(text);
-      setFileReady(true);
-    } catch(e) {
-      console.error('File parsing error:', e);
-      setError('Fayl xətası: ' + e.message);
-    } finally {
+    };
+
+    reader.onerror = () => {
+      setError('Fayl oxunarkən xəta baş verdi.');
       setExtracting(false);
+    };
+
+    if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx')) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
     }
   };
 
