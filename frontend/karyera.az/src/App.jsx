@@ -310,64 +310,64 @@ const CVView = ({ onAnalysisComplete, onReset }) => {
     setResumeText('');
 
     const reader = new FileReader();
-    
+    const isBinary = file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx');
+
     reader.onload = async (e) => {
       try {
-        const ab = e.target.result;
+        const result = e.target.result;
         let text = '';
 
         if (file.name.toLowerCase().endsWith('.pdf')) {
-          console.log('PDF arrayBuffer read success');
+          console.log('PDF processing started');
           const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
-          if (!pdfjsLib) throw new Error('PDF library not found on window');
+          if (!pdfjsLib) throw new Error('PDF kitabxanası yüklənmədi');
           
           pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
           
-          const loadingTask = pdfjsLib.getDocument({ data: ab });
+          const loadingTask = pdfjsLib.getDocument({ data: result });
           const pdf = await loadingTask.promise;
           let fullText = '';
+          
           for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
             const content = await page.getTextContent();
-            const strings = content.items.map(item => item.str);
-            fullText += strings.join(' ') + '\n';
+            // Sort by y descending, then by x ascending
+            const items = content.items.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
+            
+            let lastY = -1;
+            let pageText = '';
+            for (const item of items) {
+              if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
+                pageText += '\n';
+              }
+              pageText += item.str + ' ';
+              lastY = item.transform[5];
+            }
+            fullText += pageText + '\n\n';
           }
           text = fullText;
         } 
         else if (file.name.toLowerCase().endsWith('.docx')) {
-          console.log('DOCX arrayBuffer read success');
+          console.log('DOCX processing started');
           const mammoth = window.mammoth;
-          if (!mammoth) throw new Error('DOCX library not found on window');
-          
-          const result = await mammoth.extractRawText({ arrayBuffer: ab });
-          text = result.value;
+          if (!mammoth) throw new Error('DOCX kitabxanası yüklənmədi');
+          const res = await mammoth.extractRawText({ arrayBuffer: result });
+          text = res.value;
         } 
         else {
-          const textReader = new FileReader();
-          textReader.onload = (te) => {
-            let t = te.target.result || '';
-            console.log('Raw text read success, length:', t.length);
-            const filtered = applySkillsFilter(t);
-            setResumeText(filtered);
-            setFileReady(!!filtered.trim());
-            setExtracting(false);
-          };
-          textReader.readAsText(file);
-          return;
+          text = result; // Result is already text from readAsText
         }
 
         if (text && text.trim()) {
-          console.log('Extracted text length:', text.length);
           const filtered = applySkillsFilter(text);
-          console.log('Filtered text length:', filtered.length);
           setResumeText(filtered);
           setFileReady(true);
         } else {
-          throw new Error('Mətn çıxarıla bilmədi (nəticə boşdur)');
+          throw new Error('Fayldan mətn oxuna bilmədi və ya fayl boşdur');
         }
       } catch (err) {
-        console.error('Extraction Error:', err);
-        setError(`Xəta: ${err.message}. Zəhmət olmasa mətni kopyalayıb aşağıdakı sahəyə yapışdırın.`);
+        console.error('File Read Error:', err);
+        setError(`Xəta: ${err.message}. Zəhmət olmasa mətni aşağı yapışdırın.`);
       } finally {
         setExtracting(false);
       }
