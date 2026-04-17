@@ -27,10 +27,9 @@ async def analyze_cv(request: AnalyzeRequest):
     if not request.resume_text.strip():
         raise HTTPException(400, "resume_text boş ola bilməz")
     try:
-        resume_analysis = await engine.analyze_resume(request.resume_text)
-        gap_analysis = engine.generate_gap_analysis(resume_analysis)
-        quiz = await engine.generate_quiz(resume_analysis, gap_analysis)
-        return {"resume_analysis": resume_analysis, "gap_analysis": gap_analysis, "quiz": quiz}
+        # Use unified call for 2x speed
+        data = await engine.analyze_and_generate_quiz(request.resume_text)
+        return data
     except Exception as e:
         logger.error(f"Analiz xətası: {e}")
         raise HTTPException(500, str(e))

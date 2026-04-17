@@ -181,6 +181,61 @@ Tələblər:
         except json.JSONDecodeError:
             return {"summary": "Roadmap hazırlandı", "phases": [], "free_resources": [], "time_to_ready": "3-6 ay"}
 
+    async def analyze_and_generate_quiz(self, resume_text: str) -> Dict:
+        """Unified call to analyze resume and generate quiz in one go for 2x speed."""
+        market_context = self._build_market_context()
+        prompt = f"""Sən HR və texniki müsahibəçisən. CV-ni analiz et və bilik boşluqlarına əsasən 6 test sualı yarat.
+YALNIZ JSON qaytar.
+
+CV MƏTNİ:
+{resume_text}
+
+BAZAR KONTEKSTİ:
+{market_context}
+
+JSON formatı:
+{{
+  "resume_analysis": {{
+    "name": "Namizəd", 
+    "detected_specialization": "python_developer",
+    "experience_level": "junior",
+    "current_skills": ["S1"],
+    "summary": "Xülasə"
+  }},
+  "quiz": [
+    {{
+      "id": 1, "topic": "T1", "question": "Q1", 
+      "options": ["A) V1", "B) V2", "C) V3", "D) V4"], 
+      "correct": "A", "explanation": "E1", "difficulty": "easy", "skill_tested": "S1"
+    }}
+  ]
+}}
+
+Tələblər:
+- 6 praktik test sualı (Azərbaycan dilində)
+- CV-dən bütün bacarıqları tam çıxar
+- Dil: Azərbaycan"""
+
+        raw = await self._call_api(prompt, max_tokens=3000)
+        raw = re.sub(r'```json\s*|\s*```', '', raw).strip()
+        try:
+            data = json.loads(raw)
+            # Add gap analysis locally to save AI time
+            resume_analysis = data.get("resume_analysis", {})
+            gap_analysis = self.generate_gap_analysis(resume_analysis)
+            return {
+                "resume_analysis": resume_analysis,
+                "gap_analysis": gap_analysis,
+                "quiz": data.get("quiz", [])
+            }
+        except Exception as e:
+            logger.error(f"Unified analysis error: {e}")
+            # Fallback
+            res = await self.analyze_resume(resume_text)
+            gap = self.generate_gap_analysis(res)
+            qz = await self.generate_quiz(res, gap)
+            return {"resume_analysis": res, "gap_analysis": gap, "quiz": qz}
+
     def _build_market_context(self) -> str:
         return '\n'.join([f"{sd.get('name',k)}: {', '.join(sd.get('top_skills',[])[:10])}" for k, sd in self.jobs_data.items()])
 

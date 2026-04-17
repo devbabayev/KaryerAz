@@ -441,15 +441,34 @@ const CVView = ({ onAnalysisComplete, onReset }) => {
   );
 
   // ANALYZING / CALCULATING
-  if (step === QUIZ_STEP.ANALYZING || step === QUIZ_STEP.CALCULATING) return (
-    <div className="view-content fade-in" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',textAlign:'center'}}>
-      <div className="spinner" style={{marginBottom:'28px'}}/>
-      <h2 style={{marginBottom:'12px'}}>{step===QUIZ_STEP.ANALYZING ? 'CV analiz edilir...' : 'Nəticə hesablanır...'}</h2>
-      <p style={{color:'var(--text-secondary)',fontSize:'14px',lineHeight:'1.6',maxWidth:'260px'}}>
-        {step===QUIZ_STEP.ANALYZING ? 'AI CV-nizi oxuyur və bazarla müqayisə edir' : 'Cavablarınız qiymətləndirilir, yol xəritəsi hazırlanır'}
-      </p>
-    </div>
-  );
+  const LoadingScreen = ({ type }) => {
+    const [msgIdx, setMsgIdx] = useState(0);
+    const msgs = type === 'CV' 
+      ? ['AI mətni oxuyur...', 'Bacarıqlar axtarılır...', 'Bazar tələbləri ilə müqayisə edilir...', 'Test sualları hazırlanır...', 'Demək olar hazırdır...']
+      : ['Cavablar yoxlanılır...', 'Bilik boşluqları müəyyən edilir...', 'Öyrənmə planı qurulur...', 'Yol xəritəsi hazırlanır...', 'Baxışa hazırdır...'];
+
+    useEffect(() => {
+      const itv = setInterval(() => setMsgIdx(i => (i + 1) % msgs.length), 3000);
+      return () => clearInterval(itv);
+    }, [msgs.length]);
+
+    return (
+      <div className="view-content fade-in" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'60vh',textAlign:'center'}}>
+        <div className="spinner" style={{marginBottom:'28px'}}/>
+        <h2 style={{marginBottom:'12px'}} className="anim-fadein">{msgs[msgIdx]}</h2>
+        <div style={{width:'200px',height:'4px',background:'rgba(255,255,255,0.06)',borderRadius:'10px',overflow:'hidden',marginBottom:'16px'}}>
+          <div className="loading-bar-fill" style={{height:'100%',background:'linear-gradient(90deg,#2b7fff,#06b6d4)',width:'100%'}}/>
+        </div>
+        <p style={{color:'var(--text-secondary)',fontSize:'14px',lineHeight:'1.6',maxWidth:'260px'}}>
+          {type === 'CV' ? 'AI CV-nizi analiz edərək sizə özəl inkişaf planı və test hazırlayır' : 'AI cavablarınızı analiz edərək fərdi yol xəritənizi tərtib edir'}
+        </p>
+        <style>{`.loading-bar-fill { animation: progressFill 15s linear forwards; }`}</style>
+      </div>
+    );
+  };
+
+  if (step === QUIZ_STEP.ANALYZING) return <LoadingScreen type="CV" />;
+  if (step === QUIZ_STEP.CALCULATING) return <LoadingScreen type="RESULT" />;
 
   // PREVIEW
   if (step === QUIZ_STEP.PREVIEW && resumeAnalysis && gapAnalysis) return (
