@@ -309,33 +309,47 @@ const CVView = ({ onAnalysisComplete }) => {
     try {
       let text = '';
       if (file.name.endsWith('.pdf')) {
+        console.log('PDF analysis starting...');
         const ab = await file.arrayBuffer();
-        const pdfjsLib = window.pdfjsLib;
+        const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
         if (!pdfjsLib) {
-          setError('PDF kitabxanası yüklənmədi. Mətni aşağıya əl ilə yapışdırın.');
-          setExtracting(false);
-          return;
+          throw new Error('PDF library (pdfjsLib) not found on window');
         }
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        const pdf = await pdfjsLib.getDocument({data:ab}).promise;
-        const pages = [];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+        const loadingTask = pdfjsLib.getDocument({data:ab});
+        const pdf = await loadingTask.promise;
+        let fullText = '';
         for (let i=1;i<=pdf.numPages;i++) {
           const p = await pdf.getPage(i);
           const tc = await p.getTextContent();
-          pages.push(tc.items.map(it=>it.str).join(' '));
+          const pageText = tc.items.map(it => it.str).join(' ');
+          fullText += pageText + '\n';
         }
-        text = pages.join('\n');
+        text = fullText;
+        console.log('PDF text extracted, length:', text.length);
+      } else if (file.name.endsWith('.docx')) {
+        console.log('DOCX analysis starting...');
+        const ab = await file.arrayBuffer();
+        const mammoth = window.mammoth;
+        if (!mammoth) {
+          throw new Error('DOCX library (mammoth) not found on window');
+        }
+        const result = await mammoth.extractRawText({ arrayBuffer: ab });
+        text = result.value;
+        console.log('DOCX text extracted, length:', text.length);
       } else {
         text = await file.text();
       }
-      if (!text.trim()) {
-        setError('Fayldan mətn oxuna bilmədi. Mətni aşağıya əl ilə yapışdırın.');
+      if (!text || !text.trim()) {
+        console.error('Extraction result is empty');
+        setError('Fayldan mətn oxuna bilmədi. Fayl boş ola bilər və ya format dəstəklənmir. Mətni aşağıya əl ilə yapışdırın.');
         setExtracting(false);
         return;
       }
       setResumeText(text);
       setFileReady(true);
     } catch(e) {
+      console.error('File parsing error:', e);
       setError('Fayl xətası: ' + e.message);
     } finally {
       setExtracting(false);
@@ -395,7 +409,7 @@ const CVView = ({ onAnalysisComplete }) => {
     <div className="view-content fade-in">
       <h1 className="anim-fadeup">CV-m</h1>
       <div className="anim-fadeup anim-delay-1">
-        <input type="file" ref={fileRef} style={{display:'none'}} accept=".pdf,.txt,.doc"
+        <input type="file" ref={fileRef} style={{display:'none'}} accept=".pdf,.txt,.docx"
           onChange={e=>{ if(e.target.files[0]) handleFileSelect(e.target.files[0]); }}/>
 
         {/* Upload box */}
@@ -406,7 +420,7 @@ const CVView = ({ onAnalysisComplete }) => {
             : <Cloud size={48} className="upload-cloud" style={{color: fileReady ? '#10b981' : undefined}}/>
           }
           <p className="upload-title">
-            {extracting ? 'Fayl oxunur...' : fileReady ? fileName : 'PDF və ya TXT yükləyin'}
+            {extracting ? 'Fayl oxunur...' : fileReady ? fileName : 'PDF, DOCX və ya TXT yükləyin'}
           </p>
           <p className="upload-subtitle">
             {extracting ? 'Zəhmət olmasa gözləyin...'
@@ -547,7 +561,7 @@ const CVView = ({ onAnalysisComplete }) => {
 };
 
 // ─── ROADMAP VIEW ─────────────────────────────────────────────────────────────
-const RoadmapView = ({ roadmap, scores }) => {
+const RoadmapView = ({ roadmap, scores, onViewCoupons }) => {
   if (!roadmap) return (
     <div className="view-content fade-in">
       <div className="roadmap-header anim-fadeup"><div className="roadmap-icon-box"><Map size={32} color="#06b6d4"/></div><h1>Karyera Yolunuz</h1></div>
@@ -562,8 +576,15 @@ const RoadmapView = ({ roadmap, scores }) => {
 
   return (
     <div className="view-content fade-in">
-      <div className="roadmap-header anim-fadeup"><div className="roadmap-icon-box"><Map size={32} color="#06b6d4"/></div><h1>Karyera Yolunuz</h1></div>
-      <p className="roadmap-subtitle anim-fadeup anim-delay-1">CV analizinə əsaslanan fərdi plan</p>
+      <div className="roadmap-header anim-fadeup" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <div style={{display:'flex', alignItems:'center', gap:'16px'}}>
+          <div className="roadmap-icon-box"><Map size={32} color="#06b6d4"/></div>
+          <h1>Karyera Yolunuz</h1>
+        </div>
+        <button className="icon-btn-circle" onClick={onViewCoupons} title="Hədiyyə kuponları" style={{borderColor:'rgba(245,158,11,0.3)', background:'rgba(245,158,11,0.05)', flexShrink:0}}>
+          <span style={{fontSize:'20px'}}>🎁</span>
+        </button>
+      </div>
 
       {scores && (
         <div className="glass-card roadmap-summary-card anim-fadeup anim-delay-2">
@@ -604,11 +625,40 @@ const RoadmapView = ({ roadmap, scores }) => {
         </div>
       )}
 
+      {/* Paid Courses Section */}
+      <h3 style={{margin:'32px 0 16px'}} className="anim-fadeup">🚀 Pullu kurslar (Tövsiyə)</h3>
+      <div style={{display:'flex',flexDirection:'column',gap:'12px',marginBottom:'24px'}}>
+        <a href="https://www.coursera.org" target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}} className="anim-fadeup">
+          <div className="glass-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'18px 20px',borderLeft:'4px solid #2b7fff'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'15px'}}>
+              <div style={{width:'40px',height:'40px',background:'rgba(43,127,255,0.1)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px'}}>🎓</div>
+              <div>
+                <p style={{fontWeight:'700',fontSize:'15px',marginBottom:'2px'}}>Professional Sertifikat Proqramı</p>
+                <p style={{fontSize:'12px',color:'var(--text-secondary)'}}>Coursera · İş tapmaq zəmanəti</p>
+              </div>
+            </div>
+            <ExternalLink size={18} style={{color:'var(--text-secondary)'}}/>
+          </div>
+        </a>
+        <a href="https://www.udemy.com" target="_blank" rel="noopener noreferrer" style={{textDecoration:'none', animationDelay:'0.1s'}} className="anim-fadeup">
+          <div className="glass-card" style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'18px 20px',borderLeft:'4px solid #8b5cf6'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'15px'}}>
+              <div style={{width:'40px',height:'40px',background:'rgba(139,92,246,0.1)',borderRadius:'10px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px'}}>💻</div>
+              <div>
+                <p style={{fontWeight:'700',fontSize:'15px',marginBottom:'2px'}}>Full-stack Mastery Kursu</p>
+                <p style={{fontSize:'12px',color:'var(--text-secondary)'}}>Udemy · ən çox satılan</p>
+              </div>
+            </div>
+            <ExternalLink size={18} style={{color:'var(--text-secondary)'}}/>
+          </div>
+        </a>
+      </div>
+
       {roadmap.free_resources?.length > 0 && (
         <>
           <h3 style={{margin:'24px 0 16px'}} className="anim-fadeup">🎓 Pulsuz resurslar</h3>
           {roadmap.free_resources.map((res,i)=>(
-            <a key={i} href={res.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}} className="anim-fadeup" style={{animationDelay:`${i*0.05}s`}}>
+            <a key={i} href={res.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none', animationDelay:`${i*0.05}s`}} className="anim-fadeup">
               <div className="glass-card" style={{marginBottom:'10px',display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px'}}>
                 <div>
                   <p style={{fontWeight:'600',fontSize:'14px',marginBottom:'2px'}}>{res.title}</p>
@@ -620,6 +670,43 @@ const RoadmapView = ({ roadmap, scores }) => {
           ))}
         </>
       )}
+    </div>
+  );
+};
+
+// ─── GIFT COUPONS VIEW ────────────────────────────────────────────────────────
+const GiftCouponsView = ({ onBack }) => {
+  const coupons = [
+    { code: 'KARYERA10', discount: '10%', title: 'İlk kurs üçün', color: '#2b7fff' },
+    { code: 'GIFT25', discount: '25%', title: 'Hədiyyə paketi', color: '#10b981' },
+    { code: 'SPECIAL50', discount: '50%', title: 'Premium abunə', color: '#f59e0b' },
+  ];
+
+  return (
+    <div className="view-content fade-in">
+      <div style={{display:'flex', alignItems:'center', gap:'16px', marginBottom:'32px'}}>
+        <button className="back-btn" style={{position:'static'}} onClick={onBack}><ArrowLeft size={24}/></button>
+        <h1 style={{margin:0}}>Hədiyyə Kuponları</h1>
+      </div>
+      
+      <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+        {coupons.map((c, i) => (
+          <div key={c.code} className="glass-card anim-fadeup" style={{animationDelay:`${i*0.1}s`, padding:'24px', borderLeft:`4px solid ${c.color}`, position:'relative', overflow:'hidden'}}>
+            <div style={{position:'absolute', right:'-20px', top:'-20px', fontSize:'80px', opacity:0.1, pointerEvents:'none'}}>🎁</div>
+            <p style={{fontSize:'14px', color:'var(--text-secondary)', marginBottom:'4px'}}>{c.title}</p>
+            <h3 style={{fontSize:'24px', marginBottom:'16px'}}>{c.discount} Endirim</h3>
+            <div style={{display:'flex', gap:'10px', alignItems:'center'}}>
+              <code style={{background:'rgba(255,255,255,0.05)', padding:'8px 16px', borderRadius:'8px', fontSize:'18px', fontWeight:'700', border:'1px dashed var(--glass-border)', color:c.color}}>
+                {c.code}
+              </code>
+              <button className="badge" style={{background:c.color, border:'none', padding:'10px 16px', cursor:'pointer'}} onClick={() => {
+                navigator.clipboard.writeText(c.code);
+                alert('Kupon kopyalandı!');
+              }}>Kopyala</button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -694,6 +781,7 @@ const ProfileView = ({ profileData, onFileSelect }) => {
 // ─── APP ─────────────────────────────────────────────────────────────────────
 function App() {
   const [activeTab, setActiveTab] = useState('home');
+  const [showCoupons, setShowCoupons] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobs, setJobs] = useState([]);
@@ -713,7 +801,7 @@ function App() {
       .finally(()=>setJobsLoading(false));
   }, []);
 
-  useEffect(() => { setSelectedJob(null); }, [activeTab]);
+  useEffect(() => { setSelectedJob(null); setShowCoupons(false); }, [activeTab]);
 
   const handleAnalysisComplete = (data) => {
     setProfileData(prev => ({ ...prev, ...data }));
@@ -724,11 +812,12 @@ function App() {
 
   const renderContent = () => {
     if (selectedJob) return <JobDetailView job={selectedJob} onBack={()=>setSelectedJob(null)} userSkills={profileData?.resumeAnalysis?.current_skills??[]}/>;
+    if (showCoupons) return <GiftCouponsView onBack={() => setShowCoupons(false)}/>;
     switch(activeTab) {
       case 'home':    return <HomeView profileData={profileData} onJobClick={handleJobClick} jobs={jobs}/>;
       case 'jobs':    return <JobsView onJobClick={handleJobClick} jobs={jobs} loading={jobsLoading}/>;
       case 'cv':      return <CVView onAnalysisComplete={handleAnalysisComplete}/>;
-      case 'roadmap': return <RoadmapView roadmap={profileData?.roadmap} scores={profileData?.scores}/>;
+      case 'roadmap': return <RoadmapView roadmap={profileData?.roadmap} scores={profileData?.scores} onViewCoupons={() => setShowCoupons(true)}/>;
       case 'profile': return <ProfileView profileData={profileData}/>;
       default:        return <HomeView profileData={profileData} onJobClick={handleJobClick} jobs={jobs}/>;
     }
