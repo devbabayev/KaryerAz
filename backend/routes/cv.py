@@ -70,12 +70,17 @@ async def extract_text(file: UploadFile = File(...)):
     content = await file.read()
     text = ""
     
+    logger.info(f"Extracting text from: {name} (size: {len(content)} bytes)")
+    
     try:
         if name.endswith(".pdf"):
+            logger.info("Processing PDF...")
             reader = PdfReader(io.BytesIO(content))
-            for page in reader.pages:
+            for i, page in enumerate(reader.pages):
+                logger.info(f"Reading page {i+1}")
                 text += (page.extract_text() or "") + "\n"
         elif name.endswith(".docx"):
+            logger.info("Processing DOCX...")
             doc = Document(io.BytesIO(content))
             text = "\n".join([p.text for p in doc.paragraphs])
         else:
