@@ -272,9 +272,11 @@ const JobDetailView = ({ job, onBack, userSkills }) => (
       <p style={{fontSize:'20px',fontWeight:'700',color:'#10b981'}}>{formatSalary(job.salary_from,job.salary_to,job.currency)}</p>
     </div>
     {job.url && (
-      <a href={job.url} target="_blank" rel="noopener noreferrer" style={{display:'block',margin:'0 0 100px'}}>
-        <button className="apply-btn-large">Müraciət et <ExternalLink size={16} style={{display:'inline',marginLeft:'8px'}}/></button>
-      </a>
+      <div className="apply-container">
+        <a href={job.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:'none'}}>
+          <button className="apply-btn-large">Müraciət et <ExternalLink size={16}/></button>
+        </a>
+      </div>
     )}
   </div>
 );

@@ -829,7 +829,7 @@
 
 .match-analysis {
   padding: 20px;
-  margin-bottom: 100px;
+  margin-bottom: 20px;
 }
 
 /* Detail view removed skills list */
@@ -860,19 +860,30 @@
 }
 
 .apply-btn-large {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  right: 20px;
+  width: 100%;
   background: var(--primary-color);
   color: white;
   border: none;
   padding: 16px;
   border-radius: 12px;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 16px;
   cursor: pointer;
-  box-shadow: 0 10px 20px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 8px 20px rgba(43, 127, 255, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.apply-btn-large:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(43, 127, 255, 0.35);
+}
+
+.apply-container {
+  padding: 0 20px 100px;
 }
 
 .none-text {
