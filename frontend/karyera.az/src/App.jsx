@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BottomNav from './components/BottomNav';
 import { Bell, Search, Cloud, ChevronRight, Edit3, FileText, Map, Briefcase, MapPin, Clock, ArrowLeft, Star, TrendingUp, Award, BookOpen, ExternalLink } from 'lucide-react';
-import { analyzeCV, submitQuiz, fetchJobs } from './lib/api';
+import { analyzeCV, submitQuiz, fetchJobs, extractText } from './lib/api';
 import './App.css';
 
 // ─── Animations CSS (injected once) ─────────────────────────────────────────
@@ -39,6 +39,24 @@ function formatSalary(from, to, currency) {
 }
 
 function stripHtml(s) { return (s||'').replace(/<[^>]+>/g,''); }
+
+const applySkillsFilter = (txt) => {
+  const markers = ['bacarıqlar', 'skills', 'bacariqlar', 'yetenekler', 'навыки'];
+  const lines = (txt || '').split('\n');
+  let foundIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const lineLower = lines[i].toLowerCase();
+    if (markers.some(m => lineLower.includes(m))) {
+      foundIndex = i;
+      break;
+    }
+  }
+  if (foundIndex !== -1) {
+    console.log('Found skills marker at line', foundIndex);
+    return lines.slice(foundIndex).join('\n');
+  }
+  return txt;
+};
 
 // ─── Animated Score Ring ─────────────────────────────────────────────────────
 function ScoreRing({ score, size=120, stroke=8 }) {
@@ -301,7 +319,7 @@ const CVView = ({ onAnalysisComplete, onReset }) => {
   const [selectedOpt, setSelectedOpt] = useState(null);
   const fileRef = useRef(null);
 
-  const handleFileSelect = (file) => {
+  const handleFileSelect = async (file) => {
     if (!file) return;
     setFileName(file.name);
     setFileReady(false);
@@ -309,99 +327,23 @@ const CVView = ({ onAnalysisComplete, onReset }) => {
     setError('');
     setResumeText('');
 
-    const reader = new FileReader();
-    const isBinary = file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx');
-
-    reader.onload = async (e) => {
-      try {
-        const result = e.target.result;
-        let text = '';
-
-        if (file.name.toLowerCase().endsWith('.pdf')) {
-          console.log('PDF processing started');
-          const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
-          if (!pdfjsLib) throw new Error('PDF kitabxanası yüklənmədi');
-          
-          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-          
-          const loadingTask = pdfjsLib.getDocument({ data: result });
-          const pdf = await loadingTask.promise;
-          let fullText = '';
-          
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            // Sort by y descending, then by x ascending
-            const items = content.items.sort((a, b) => b.transform[5] - a.transform[5] || a.transform[4] - b.transform[4]);
-            
-            let lastY = -1;
-            let pageText = '';
-            for (const item of items) {
-              if (lastY !== -1 && Math.abs(item.transform[5] - lastY) > 5) {
-                pageText += '\n';
-              }
-              pageText += item.str + ' ';
-              lastY = item.transform[5];
-            }
-            fullText += pageText + '\n\n';
-          }
-          text = fullText;
-        } 
-        else if (file.name.toLowerCase().endsWith('.docx')) {
-          console.log('DOCX processing started');
-          const mammoth = window.mammoth;
-          if (!mammoth) throw new Error('DOCX kitabxanası yüklənmədi');
-          const res = await mammoth.extractRawText({ arrayBuffer: result });
-          text = res.value;
-        } 
-        else {
-          text = result; // Result is already text from readAsText
-        }
-
-        if (text && text.trim()) {
-          const filtered = applySkillsFilter(text);
-          setResumeText(filtered);
-          setFileReady(true);
-        } else {
-          throw new Error('Fayldan mətn oxuna bilmədi və ya fayl boşdur');
-        }
-      } catch (err) {
-        console.error('File Read Error:', err);
-        setError(`Xəta: ${err.message}. Zəhmət olmasa mətni aşağı yapışdırın.`);
-      } finally {
-        setExtracting(false);
-      }
-    };
-
-    const applySkillsFilter = (txt) => {
-      const markers = ['bacarıqlar', 'skills', 'bacariqlar', 'yetenekler', 'навыки'];
-      const lines = txt.split('\n');
-      let foundIndex = -1;
+    try {
+      console.log('Extracting text via backend for:', file.name);
+      const data = await extractText(file);
+      const text = data.text;
       
-      for (let i = 0; i < lines.length; i++) {
-        const lineLower = lines[i].toLowerCase();
-        if (markers.some(m => lineLower.includes(m))) {
-          foundIndex = i;
-          break;
-        }
+      if (text && text.trim()) {
+        const filtered = applySkillsFilter(text);
+        setResumeText(filtered);
+        setFileReady(true);
+      } else {
+        throw new Error('Fayldan mətn çıxarıla bilmədi');
       }
-      
-      if (foundIndex !== -1) {
-        console.log('Found skills marker at line', foundIndex);
-        return lines.slice(foundIndex).join('\n');
-      }
-      return txt;
-    };
-
-    reader.onerror = () => {
-      setError('Fayl oxunarkən xəta baş verdi.');
+    } catch (err) {
+      console.error('File Read Error:', err);
+      setError(`Xəta: ${err.message}. Zəhmət olmasa mətni aşağı yapışdırın.`);
+    } finally {
       setExtracting(false);
-    };
-
-    if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx')) {
-      reader.readAsArrayBuffer(file);
-    } else {
-      reader.readAsText(file);
     }
   };
 

@@ -1,7 +1,9 @@
-import json, logging
+import json, logging, io
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
+from pypdf import PdfReader
+from docx import Document
 from services.ai_engine import CareerAIEngine
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,31 @@ async def get_jobs():
                 "url": v.get("url"), "specialization": spec_key, "spec_name": spec_data.get("name", spec_key),
             })
     return {"vacancies": result, "total": len(result)}
+
+@router.post("/cv/extract-text")
+async def extract_text(file: UploadFile = File(...)):
+    name = file.filename.lower()
+    content = await file.read()
+    text = ""
+    
+    try:
+        if name.endswith(".pdf"):
+            reader = PdfReader(io.BytesIO(content))
+            for page in reader.pages:
+                text += (page.extract_text() or "") + "\n"
+        elif name.endswith(".docx"):
+            doc = Document(io.BytesIO(content))
+            text = "\n".join([p.text for p in doc.paragraphs])
+        else:
+            text = content.decode("utf-8", errors="ignore")
+            
+        if not text.strip():
+            raise HTTPException(400, "Fayldan mətn çıxarıla bilmədi")
+            
+        return {"text": text}
+    except Exception as e:
+        logger.error(f"Extraction error: {e}")
+        raise HTTPException(500, f"Fayl oxunarkən xəta: {str(e)}")
 
 @router.get("/cv/health")
 async def health():
