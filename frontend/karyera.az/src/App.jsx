@@ -315,9 +315,9 @@ const CVView = ({ onAnalysisComplete }) => {
         let text = '';
 
         if (file.name.toLowerCase().endsWith('.pdf')) {
-          console.log('Processing PDF with FileReader...');
+          console.log('PDF arrayBuffer read success');
           const pdfjsLib = window.pdfjsLib || window['pdfjs-dist/build/pdf'];
-          if (!pdfjsLib) throw new Error('PDF library not found (pdfjsLib)');
+          if (!pdfjsLib) throw new Error('PDF library not found on window');
           
           pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
           
@@ -333,43 +333,62 @@ const CVView = ({ onAnalysisComplete }) => {
           text = fullText;
         } 
         else if (file.name.toLowerCase().endsWith('.docx')) {
-          console.log('Processing DOCX with FileReader...');
+          console.log('DOCX arrayBuffer read success');
           const mammoth = window.mammoth;
-          if (!mammoth) throw new Error('DOCX library not found (mammoth)');
+          if (!mammoth) throw new Error('DOCX library not found on window');
           
           const result = await mammoth.extractRawText({ arrayBuffer: ab });
           text = result.value;
         } 
         else {
-          // Fallback for .txt and others
           const textReader = new FileReader();
           textReader.onload = (te) => {
-            const t = te.target.result;
-            if (t && t.trim()) {
-              setResumeText(t);
-              setFileReady(true);
-              setExtracting(false);
-            } else {
-              setError('Fayl boşdur və ya oxuna bilmir.');
-              setExtracting(false);
-            }
+            let t = te.target.result || '';
+            console.log('Raw text read success, length:', t.length);
+            const filtered = applySkillsFilter(t);
+            setResumeText(filtered);
+            setFileReady(!!filtered.trim());
+            setExtracting(false);
           };
           textReader.readAsText(file);
-          return; // textReader uses its own state management
+          return;
         }
 
         if (text && text.trim()) {
-          setResumeText(text);
+          console.log('Extracted text length:', text.length);
+          const filtered = applySkillsFilter(text);
+          console.log('Filtered text length:', filtered.length);
+          setResumeText(filtered);
           setFileReady(true);
         } else {
           throw new Error('Mətn çıxarıla bilmədi (nəticə boşdur)');
         }
       } catch (err) {
-        console.error('File processing error:', err);
-        setError(`Xəta baş verdi: ${err.message}. Zəhmət olmasa mətni əl ilə yapışdırın.`);
+        console.error('Extraction Error:', err);
+        setError(`Xəta: ${err.message}. Zəhmət olmasa mətni kopyalayıb aşağıdakı sahəyə yapışdırın.`);
       } finally {
         setExtracting(false);
       }
+    };
+
+    const applySkillsFilter = (txt) => {
+      const markers = ['bacarıqlar', 'skills', 'bacariqlar', 'yetenekler', 'навыки'];
+      const lines = txt.split('\n');
+      let foundIndex = -1;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const lineLower = lines[i].toLowerCase();
+        if (markers.some(m => lineLower.includes(m))) {
+          foundIndex = i;
+          break;
+        }
+      }
+      
+      if (foundIndex !== -1) {
+        console.log('Found skills marker at line', foundIndex);
+        return lines.slice(foundIndex).join('\n');
+      }
+      return txt;
     };
 
     reader.onerror = () => {
