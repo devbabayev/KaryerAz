@@ -284,7 +284,7 @@ const JobDetailView = ({ job, onBack, userSkills }) => (
 // ─── CV VIEW ─────────────────────────────────────────────────────────────────
 const QUIZ_STEP = { UPLOAD:'upload', ANALYZING:'analyzing', PREVIEW:'preview', QUIZ:'quiz', CALCULATING:'calculating', RESULTS:'results' };
 
-const CVView = ({ onAnalysisComplete }) => {
+const CVView = ({ onAnalysisComplete, onReset }) => {
   const [step, setStep] = useState(QUIZ_STEP.UPLOAD);
   const [resumeText, setResumeText] = useState('');
   const [fileName, setFileName] = useState('');
@@ -445,6 +445,7 @@ const CVView = ({ onAnalysisComplete }) => {
     setResumeAnalysis(null); setGapAnalysis(null); setQuiz([]);
     setScores(null); setRoadmap(null); setCurrentQ(0);
     setUserAnswers({}); setSelectedOpt(null);
+    onReset?.();
   };
 
   const PrimaryBtn = ({onClick,children,disabled=false}) => (
@@ -761,7 +762,7 @@ const GiftCouponsView = ({ onBack }) => {
 };
 
 // ─── PROFILE VIEW ─────────────────────────────────────────────────────────────
-const ProfileView = ({ profileData, onFileSelect }) => {
+const ProfileView = ({ profileData, onReset }) => {
   const name = profileData?.resumeAnalysis?.name ?? 'Namizəd';
   const spec = profileData?.gapAnalysis?.specialization_name ?? 'Profilinizi tamamlayın';
   const skills = profileData?.resumeAnalysis?.current_skills ?? [];
@@ -820,6 +821,9 @@ const ProfileView = ({ profileData, onFileSelect }) => {
         <div className="menu-item glass-card"><div className="menu-icon-label"><Bell size={20} className="menu-icon"/><span>Bildirişlər</span></div><ChevronRight size={20}/></div>
         <div className="menu-item glass-card"><div className="menu-icon-label"><span className="menu-icon">⚙️</span><span>Parametrlər</span></div><ChevronRight size={20}/></div>
       </div>
+      <div className="menu-item glass-card logout-item anim-fadeup anim-delay-5" onClick={onReset} style={{cursor:'pointer', marginTop:'12px', borderColor:'rgba(239,68,68,0.2)'}}>
+        <div className="menu-icon-label"><span className="menu-icon">📄</span><span>CV-ni Yenilə</span></div><ChevronRight size={20}/>
+      </div>
       <div className="menu-item glass-card logout-item anim-fadeup anim-delay-5">
         <div className="menu-icon-label"><span className="menu-icon">🚪</span><span>Çıxış</span></div><ChevronRight size={20}/>
       </div>
@@ -831,7 +835,12 @@ const ProfileView = ({ profileData, onFileSelect }) => {
 function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [showCoupons, setShowCoupons] = useState(false);
-  const [profileData, setProfileData] = useState(null);
+  const [profileData, setProfileData] = useState(() => {
+    const saved = localStorage.getItem('karyera_profile');
+    try {
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [selectedJob, setSelectedJob] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [jobsLoading, setJobsLoading] = useState(true);
@@ -842,6 +851,14 @@ function App() {
     document.head.appendChild(style);
     return () => document.head.removeChild(style);
   }, []);
+
+  useEffect(() => {
+    if (profileData) {
+      localStorage.setItem('karyera_profile', JSON.stringify(profileData));
+    } else {
+      localStorage.removeItem('karyera_profile');
+    }
+  }, [profileData]);
 
   useEffect(() => {
     fetchJobs()
@@ -865,9 +882,9 @@ function App() {
     switch(activeTab) {
       case 'home':    return <HomeView profileData={profileData} onJobClick={handleJobClick} jobs={jobs}/>;
       case 'jobs':    return <JobsView onJobClick={handleJobClick} jobs={jobs} loading={jobsLoading}/>;
-      case 'cv':      return <CVView onAnalysisComplete={handleAnalysisComplete}/>;
+      case 'cv':      return <CVView onAnalysisComplete={handleAnalysisComplete} onReset={() => setProfileData(null)}/>;
       case 'roadmap': return <RoadmapView roadmap={profileData?.roadmap} scores={profileData?.scores} onViewCoupons={() => setShowCoupons(true)}/>;
-      case 'profile': return <ProfileView profileData={profileData}/>;
+      case 'profile': return <ProfileView profileData={profileData} onReset={() => { setProfileData(null); setActiveTab('cv'); }}/>;
       default:        return <HomeView profileData={profileData} onJobClick={handleJobClick} jobs={jobs}/>;
     }
   };
