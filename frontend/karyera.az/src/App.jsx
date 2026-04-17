@@ -80,7 +80,7 @@ function SkillBadge({ skill, delay=0 }) {
 
 // ─── HOME VIEW ───────────────────────────────────────────────────────────────
 const HomeView = ({ profileData, onJobClick, jobs }) => {
-  const name = profileData?.resumeAnalysis?.name ?? 'Sarah Chen';
+  const name = profileData?.resumeAnalysis?.name ?? 'Namizəd';
   const firstName = name.split(' ')[0];
   const skills = profileData?.resumeAnalysis?.current_skills ?? [];
   const spec = profileData?.gapAnalysis?.specialization_name ?? null;
@@ -762,7 +762,7 @@ const GiftCouponsView = ({ onBack }) => {
 
 // ─── PROFILE VIEW ─────────────────────────────────────────────────────────────
 const ProfileView = ({ profileData, onFileSelect }) => {
-  const name = profileData?.resumeAnalysis?.name ?? 'Sarah Chen';
+  const name = profileData?.resumeAnalysis?.name ?? 'Namizəd';
   const spec = profileData?.gapAnalysis?.specialization_name ?? 'Profilinizi tamamlayın';
   const skills = profileData?.resumeAnalysis?.current_skills ?? [];
   const strengths = profileData?.resumeAnalysis?.key_strengths ?? [];
